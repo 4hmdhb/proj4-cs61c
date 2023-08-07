@@ -63,7 +63,7 @@ uint32_t do_mult(int32_t *a_matrix, int32_t *b_matrix, int32_t col_a, int col_b,
     int sum = 0;
     for (int i = 0; i < row_b; i++){
         for(int y = 0; y < col_b; y++){
-            sum = sum + (a_matrix[i * col_a + y] + b_matrix[i * col_b + y]);
+            sum = sum + (a_matrix[i * col_a + y] * b_matrix[i * col_b + y]);
         }
     }
     return sum;
