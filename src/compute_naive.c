@@ -1,15 +1,33 @@
 #include "compute.h"
+#include <x86intrin.h>
+
 
 // Computes the dot product of vec1 and vec2, both of size n
 int32_t dot(uint32_t n, int32_t *vec1, int32_t *vec2) {
   // TODO: implement dot product of vec1 and vec2, both of size n
     int32_t ans = 0;
+    __m256i ans_vector = _mm256_setzero_si256();
 
-    for (int i = 0; i < n; i++){
-        ans = ans + (vec1[i] * vec2[i]);
+    for (int i = 0; i < n / 8; i++){
+        __m256i a_vector = _mm256_loadu_si256( (__m256i *) vec1 + (i * 8));
+        __m256i b_vector = _mm256_loadu_si256( (__m256i *) vec2 + (i * 8));
+
+        ans_vector = _mm256_add_epi32(ans_vector, _mm256_mullo_epi32(a_vector, b_vector));
+        
 
     }
-  
+    
+    int tmp_arr[8] = {0,0,0,0,0,0,0,0};
+    _mm256_store_si256( (__m256i *) tmp_arr, ans_vector);
+
+    for(int i = 0; i<8; i++){
+        ans = ans +tmp_arr[i];
+    }
+
+    for (int i = n/8 * 8; i < n; i++){
+        ans = ans + vec1[i] * vec2[i];
+    }
+
     return ans;
 }
 
@@ -59,8 +77,14 @@ int32_t *flipper(matrix_t *matrix){
 }
 
 
+
+
 uint32_t do_mult(int32_t *a_matrix, int32_t *b_matrix, int32_t col_a, int col_b, int row_b){
     int sum = 0;
+
+    
+    __mm
+
     for (int i = 0; i < row_b; i++){
         for(int y = 0; y < col_b; y++){
             sum = sum + (a_matrix[i * col_a + y] * b_matrix[i * col_b + y]);
@@ -90,8 +114,8 @@ int convolve(matrix_t *a_matrix, matrix_t *b_matrix, matrix_t **output_matrix) {
 
     int size_of_b = b_matrix->cols * b_matrix->rows;
 
-    for (int i = 0; i < size_of_b; i++){
-        rev_b[i] = b_matrix->data[size_of_b - i - 1];
+    for (int i = 0; i< b_matrix->cols * b_matrix->rows; i++){
+        rev_b[i] = b_matrix->data[b_matrix->cols * b_matrix->rows - i - 1];
     }
 
     int32_t *output = malloc(sizeof(int32_t) * (out_cols * out_rows));
@@ -99,7 +123,15 @@ int convolve(matrix_t *a_matrix, matrix_t *b_matrix, matrix_t **output_matrix) {
         return -1;
     }
     
-    int index = 0;
+    
+    #pragma omp parallel for 
+    for (int i = 0; i < out_rows * out_cols; i++){
+        int a_row = (i / out_cols);
+        int a_col = i % out_cols;
+        output[i] = do_mult(a_matrix->data + (a_row * a_matrix->cols + a_col), rev_b, a_matrix->cols, b_matrix->cols, b_matrix->rows);
+
+    }
+/*
     for (int i = 0; i < out_rows; i++){
         for (int y = 0; y < out_cols; y++){
             output[index] = do_mult(a_matrix->data + (i * a_cols + y), rev_b, a_cols, b_cols, b_matrix->rows);
@@ -107,7 +139,7 @@ int convolve(matrix_t *a_matrix, matrix_t *b_matrix, matrix_t **output_matrix) {
         }
 
     }
-    
+  */  
     *output_matrix = malloc(sizeof(matrix_t));
     (*output_matrix)->rows = out_rows;
     (*output_matrix)->cols = out_cols;
