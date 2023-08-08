@@ -38,17 +38,21 @@ int32_t dot(uint32_t n, int32_t *vec1, int32_t *vec2) {
 uint32_t do_mult(int32_t *a_matrix, int32_t *b_matrix, int32_t col_a, int col_b, int row_b){
     int sum = 0;
 
+    int size = col_b * row_b;
 
-    for (int i = 0; i < row_b; i++){
-        for(int y = 0; y < col_b; y++){
-            sum = sum + (a_matrix[i * col_a + y] * b_matrix[i * col_b + y]);
-        }
+    #pragma omp parallel for
+    for (int i = 0; i < size; i++){
+        int a_row = i / col_b;
+        int a_col = i % col_b;
+        sum = sum + (a_matrix[a_row * col_a + a_col] * b_matrix[i]);
+        
     }
     return sum;
 }
 
 
 void exchanger(int32_t *data, uint32_t cols, uint32_t rows, int32_t offset){
+    
     
     for (int i = 0; i < cols; i++){
         int32_t a = data[i + (offset * cols)];
@@ -61,34 +65,30 @@ void exchanger(int32_t *data, uint32_t cols, uint32_t rows, int32_t offset){
 }
 
 
-int32_t *flipper(matrix_t *matrix){
+void flipper(matrix_t *matrix){
 
     uint32_t cols = matrix->cols;
     uint32_t rows = matrix->rows;
 
-    int32_t *result = malloc(sizeof(int32_t) * (cols * rows));
-
-
-    //copy data
-
-    for (int i = 0; i < (cols * rows); i++){
-    
-        result[i] = matrix->data[i];
-    }
 
     //flip vertically
     
     for (int i = 0; i < rows / 2; i++){
-        exchanger(result, cols, rows, i);
+        exchanger(matrix->data, cols, rows, i);
     }
 
+    
     //flip horizontally
     for (int i = 0; i < rows; i++){
         for (int y = 0; y < cols / 2; y++){
-            exchanger(result + (i * cols), 1, cols, y);
+            int a = matrix->data[i * cols + y];
+            int b = matrix->data[((i+1) * cols) - 1 - y];
+            matrix->data[i * cols + y] = b;
+            matrix->data[((i+1) * cols) - 1 -y] = a;
         }
 
     }
+
 
 }
 
@@ -103,18 +103,9 @@ int convolve(matrix_t *a_matrix, matrix_t *b_matrix, matrix_t **output_matrix) {
 
     uint32_t out_rows = a_matrix->rows - b_matrix->rows + 1;
     uint32_t out_cols = a_matrix->cols - b_matrix->cols + 1;
-
-    int32_t *rev_b = malloc(sizeof(int32_t) * (b_matrix->cols * b_matrix->rows));
-    if (rev_b == NULL){
-        return -1;   
-    }
     
-
-    int size_of_b = b_matrix->cols * b_matrix->rows;
-
-    for (int i = 0; i< b_matrix->cols * b_matrix->rows; i++){
-        rev_b[i] = b_matrix->data[b_matrix->cols * b_matrix->rows - i - 1];
-    }
+    flipper(b_matrix);
+    
 
     int32_t *output = malloc(sizeof(int32_t) * (out_cols * out_rows));
     if (output == NULL){
@@ -126,7 +117,7 @@ int convolve(matrix_t *a_matrix, matrix_t *b_matrix, matrix_t **output_matrix) {
     for (int i = 0; i < out_rows * out_cols; i++){
         int a_row = (i / out_cols);
         int a_col = i % out_cols;
-        output[i] = do_mult(a_matrix->data + (a_row * a_matrix->cols + a_col), rev_b, a_matrix->cols, b_matrix->cols, b_matrix->rows);
+        output[i] = do_mult(a_matrix->data + (a_row * a_matrix->cols + a_col), b_matrix->data, a_matrix->cols, b_matrix->cols, b_matrix->rows);
 
     }
 
@@ -136,7 +127,6 @@ int convolve(matrix_t *a_matrix, matrix_t *b_matrix, matrix_t **output_matrix) {
 
     (*output_matrix)->data = output;
     
-    free(rev_b);
     
     return 0;
   
