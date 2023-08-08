@@ -1,5 +1,4 @@
 #include "compute.h"
-#include <x86intrin.h>
 
 
 // Computes the dot product of vec1 and vec2, both of size n
