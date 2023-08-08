@@ -5,17 +5,141 @@
 
 // Computes the dot product of vec1 and vec2, both of size n
 int32_t dot(uint32_t n, int32_t *vec1, int32_t *vec2) {
-  // TODO: implement dot product of vec1 and vec2, both of size n
 
+    // TODO: implement dot product of vec1 and vec2, both of size n
+    int32_t ans = 0;
+    __m256i ans_vector = _mm256_setzero_si256();
+
+    for (int i = 0; i < n / 8; i++){
+        __m256i a_vector = _mm256_loadu_si256( (__m256i *) vec1 + (i * 8));
+        __m256i b_vector = _mm256_loadu_si256( (__m256i *) vec2 + (i * 8));
+
+        ans_vector = _mm256_add_epi32(ans_vector, _mm256_mullo_epi32(a_vector, b_vector));
+        
+
+    }
+    
+    int tmp_arr[8] = {0,0,0,0,0,0,0,0};
+    _mm256_store_si256( (__m256i *) tmp_arr, ans_vector);
+
+    for(int i = 0; i<8; i++){
+        ans = ans +tmp_arr[i];
+    }
+
+    for (int i = n/8 * 8; i < n; i++){
+        ans = ans + vec1[i] * vec2[i];
+    }
+
+    return ans;
   return -1;
 }
+
+
+uint32_t do_mult(int32_t *a_matrix, int32_t *b_matrix, int32_t col_a, int col_b, int row_b){
+    int sum = 0;
+
+
+    for (int i = 0; i < row_b; i++){
+        for(int y = 0; y < col_b; y++){
+            sum = sum + (a_matrix[i * col_a + y] * b_matrix[i * col_b + y]);
+        }
+    }
+    return sum;
+}
+
+
+void exchanger(int32_t *data, uint32_t cols, uint32_t rows, int32_t offset){
+    
+    for (int i = 0; i < cols; i++){
+        int32_t a = data[i + (offset * cols)];
+        int32_t b = data[i + ((rows - offset - 1) * cols)];
+
+        data[i + (offset * cols)] = b;
+        data[i + ((rows - offset - 1) * cols)] = a;
+    }
+
+}
+
+
+int32_t *flipper(matrix_t *matrix){
+
+    uint32_t cols = matrix->cols;
+    uint32_t rows = matrix->rows;
+
+    int32_t *result = malloc(sizeof(int32_t) * (cols * rows));
+
+
+    //copy data
+
+    for (int i = 0; i < (cols * rows); i++){
+    
+        result[i] = matrix->data[i];
+    }
+
+    //flip vertically
+    
+    for (int i = 0; i < rows / 2; i++){
+        exchanger(result, cols, rows, i);
+    }
+
+    //flip horizontally
+    for (int i = 0; i < rows; i++){
+        for (int y = 0; y < cols / 2; y++){
+            exchanger(result + (i * cols), 1, cols, y);
+        }
+
+    }
+
+}
+
 
 // Computes the convolution of two matrices
 int convolve(matrix_t *a_matrix, matrix_t *b_matrix, matrix_t **output_matrix) {
   // TODO: convolve matrix a and matrix b, and store the resulting matrix in
   // output_matrix
+    uint32_t a_cols = a_matrix->cols;
+    uint32_t b_cols = b_matrix->cols;
 
-  return -1;
+
+    uint32_t out_rows = a_matrix->rows - b_matrix->rows + 1;
+    uint32_t out_cols = a_matrix->cols - b_matrix->cols + 1;
+
+    int32_t *rev_b = malloc(sizeof(int32_t) * (b_matrix->cols * b_matrix->rows));
+    if (rev_b == NULL){
+        return -1;   
+    }
+    
+
+    int size_of_b = b_matrix->cols * b_matrix->rows;
+
+    for (int i = 0; i< b_matrix->cols * b_matrix->rows; i++){
+        rev_b[i] = b_matrix->data[b_matrix->cols * b_matrix->rows - i - 1];
+    }
+
+    int32_t *output = malloc(sizeof(int32_t) * (out_cols * out_rows));
+    if (output == NULL){
+        return -1;
+    }
+    
+    
+    #pragma omp parallel for 
+    for (int i = 0; i < out_rows * out_cols; i++){
+        int a_row = (i / out_cols);
+        int a_col = i % out_cols;
+        output[i] = do_mult(a_matrix->data + (a_row * a_matrix->cols + a_col), rev_b, a_matrix->cols, b_matrix->cols, b_matrix->rows);
+
+    }
+
+    *output_matrix = malloc(sizeof(matrix_t));
+    (*output_matrix)->rows = out_rows;
+    (*output_matrix)->cols = out_cols;
+
+    (*output_matrix)->data = output;
+    
+    free(rev_b);
+    
+    return 0;
+  
 }
 
 // Executes a task

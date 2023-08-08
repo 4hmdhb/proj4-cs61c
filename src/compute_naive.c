@@ -5,27 +5,10 @@
 // Computes the dot product of vec1 and vec2, both of size n
 int32_t dot(uint32_t n, int32_t *vec1, int32_t *vec2) {
   // TODO: implement dot product of vec1 and vec2, both of size n
-    int32_t ans = 0;
-    __m256i ans_vector = _mm256_setzero_si256();
+    int ans = 0;
 
-    for (int i = 0; i < n / 8; i++){
-        __m256i a_vector = _mm256_loadu_si256( (__m256i *) vec1 + (i * 8));
-        __m256i b_vector = _mm256_loadu_si256( (__m256i *) vec2 + (i * 8));
-
-        ans_vector = _mm256_add_epi32(ans_vector, _mm256_mullo_epi32(a_vector, b_vector));
-        
-
-    }
-    
-    int tmp_arr[8] = {0,0,0,0,0,0,0,0};
-    _mm256_store_si256( (__m256i *) tmp_arr, ans_vector);
-
-    for(int i = 0; i<8; i++){
-        ans = ans +tmp_arr[i];
-    }
-
-    for (int i = n/8 * 8; i < n; i++){
-        ans = ans + vec1[i] * vec2[i];
+    for (int i = 0; i < n; i++){
+        ans = ans + (vec1[i] * vec2[i]);
     }
 
     return ans;
@@ -82,8 +65,6 @@ int32_t *flipper(matrix_t *matrix){
 uint32_t do_mult(int32_t *a_matrix, int32_t *b_matrix, int32_t col_a, int col_b, int row_b){
     int sum = 0;
 
-    
-    __mm
 
     for (int i = 0; i < row_b; i++){
         for(int y = 0; y < col_b; y++){
